@@ -1,15 +1,22 @@
-# Setup Manual (Conda + Shell Integration)
+# Installation Manual (Conda (Optional) + Shell Integration (compulsory) )
 
 This manual shows how to set up `py_hrlogger_v2` on macOS, Linux, and Windows.
 
-## 0) Project status
+For setup follow the instructions below ( `1.` is optional installation, `2.` is for setup, `3.` is for shell integration, `4.` is for log configuration, `5.` is for basic usage). Steps `2.` and `3.` are complementary for setup.  In step `3.`, you can choose either Method-I or Method-II for shell integration (Method-I is recommended for better separation of concerns).
+
+## 0) File overview and structure
 
 - `hrloginv2.py` is the active logger script.
 - `hrlogin.py` is **obsolete** (kept only for backward compatibility).
 - `hrlogin2md.py` converts raw logs to markdown/html/pdf.
 - `hrlogin_style.css` is the shared style file used by both HTML and PDF outputs.
+- `header.tex` is used for PDF exports via Pandoc for consistent styling.
 
-## 1) Create the Conda environment
+## 1) **Optional Installation** Create the Conda environment
+
+This step is important if you want to use the HTML/PDF export features. For simple logging, you can use any Python environment (see next session for Setup). 
+
+** For macOS/Linux users**:
 
 From the project root:
 
@@ -17,6 +24,12 @@ From the project root:
 conda env create -f environment.yml
 conda activate py-hrlogger
 ```
+
+** For Windows users**:
+
+For Windows PowerShell shell shortcuts, use [powershell_hrlogin.ps1](powershell_hrlogin.ps1) via `$PROFILE` (documented in the manual).
+
+you need to use `py-hrlogger` environment for exporting to HTML/PDF, but you can log entries with any Python environment as long as it has access to the log file.
 
 Install/verify converter dependencies in the active env:
 
@@ -26,7 +39,7 @@ pip install markdown2 pdfkit xhtml2pdf
 
 Optional (better PDF fidelity): install `wkhtmltopdf` system binary.
 
-## 2) Optional: install scripts into ~/.local/bin (macOS/Linux)
+## 2) **Setup**: install scripts into ~/.local/bin (macOS/Linux)
 
 This gives stable command paths and lets shell functions call scripts from anywhere.
 
@@ -47,9 +60,9 @@ export PATH="$HOME/.local/bin:$PATH"
 
 Add that (above) PATH line to `~/.bashrc` or `~/.zshrc` if needed.
 
-## 3) Setup shell commands (bash/zsh)
+## 3) **Setup**: Setup shell commands (bash/zsh)
 
-use one of the methods below to integrate the helper functions into your shell environment. These functions provide convenient commands like `hrlogin`, `hrrecent`, `hrdate`, `hrrange`, and `hrsearch` for managing your logs directly from the terminal. My suggested method is Method-I for better separation, but Method-II works fine too if you prefer everything in one file.
+use one of the methods below to integrate the helper functions into your shell environment. These functions provide convenient commands like `hrlogin`, `hrrecent`, `hrdate`, `hrrange`, and `hrsearch` for managing your logs directly from the terminal. **My suggested method is Method-I** for better separation, but Method-II works fine too if you prefer everything in one file.
 
 
 ### A- Method-I: Use seprate source file (bash_hrlogin or zsh_hrlogin)
@@ -96,7 +109,6 @@ source ~/.bashrc
 cat zsh_hrlogin >> ~/.zshrc
 source ~/.zshrc
 ```
-
 
 After this, commands like `hrlogin`, `hrrecent`, `hrdate`, `hrrange`, `hrsearch` are available in your shell.
 

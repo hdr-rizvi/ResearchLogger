@@ -1,83 +1,165 @@
-# py_hrlogger_v2
+# Research Logger (`hrlogger_v2`)
 
-This file is for the update information of py_hrlogger. The original version is in the `py_hrlogger` branch, and this `py_hrlogger_v2` branch contains the new version with cross-platform support and improved features.
+A structured, cross-platform research logging system for researchers,
+programmers, and developers.
 
-See [MANUAL_hResearchLogger.md](MANUAL_hResearchLogger.md) for setup and usage instructions.
+------------------------------------------------------------------------
 
-If this die contains following directories, Ignore them: sample_data/, run/, old_versions/
+## Overview
 
-Cross-platform logging/export workflow for macOS, Linux, and Windows using Conda.
+**Research Logger (`hrlogger_v2`)** is designed for researchers,
+programmers, and software developers who want to maintain a structured,
+chronological record of their work.
 
-For Windows PowerShell shell shortcuts, use [powershell_hrlogin.ps1](powershell_hrlogin.ps1) via `$PROFILE` (documented in the manual).
+It allows you to log activities in a consistent format and export them
+to **Markdown, HTML, or PDF**, making it suitable for documentation,
+reporting, publication, or archival purposes.
 
-## 1) Create environment
+This tool is especially useful if you:
 
-```bash
-conda env create -f environment.yml
-conda activate py-hrlogger
+-   Work on multiple projects simultaneously\
+-   Frequently switch between directories\
+-   Want to maintain a professional research diary\
+-   Need timestamped records for reports or publications\
+-   Value organized and reproducible documentation
+
+Each entry is logged with a timestamp, allowing you to clearly see
+**what was done and when**.
+
+------------------------------------------------------------------------
+
+## Key Features
+
+-   Timestamped logging with a single command\
+-   Chronological record of research and development activities\
+-   Multi-project friendly (works naturally across directories)\
+-   Search and filter by date, time, or keyword\
+-   Export logs to **Markdown, HTML, and PDF**\
+-   Cross-platform support (macOS, Linux, Windows)\
+-   Backup and restore functionality\
+-   Statistical summaries of activity
+
+------------------------------------------------------------------------
+
+## Repository Notes
+
+-   This repository contains the updated version (`hrlogger_v2`) with
+    improved cross-platform support and enhanced export capabilities.
+-   The original implementation is available in the `py_hrlogger`
+    branch.
+-   If present, the following directories are for development or
+    examples and can be ignored:
+    -   `sample_data/`
+    -   `run/`
+    -   `old_versions/`
+
+------------------------------------------------------------------------
+
+# SETUP & INSTALLATION
+
+For detailed instructions, see:
+
+`MANUAL_hrLogger.md`
+
+### Basic Installation Notes
+
+-   Optionally (recommended): Create and activate a Conda environment
+    for HTML/PDF export features.
+-   Copy Python files to your desired location and add them to your
+    `PATH`, or use shell shortcuts.
+-   Copy bash/zsh/powershell shortcuts to your shell profile for
+    convenient command usage.
+
+------------------------------------------------------------------------
+
+# BASIC COMMANDS & USAGE
+
+## Logging
+
+-   `hrlogin "message"`: Log a new entry with the given message.
+
+------------------------------------------------------------------------
+
+## Viewing Saved Logs
+
+-   `hrview`
+-   `hrlist [asc|desc]`
+-   `hrrecent [N]`
+-   `hrtoday`
+-   `hrdate YYYY-MM-DD`
+-   `hrdate YYYY-MM-DD.HHMM`
+-   `hrrange YYYY-MM-DD YYYY-MM-DD`
+-   `hrhour YYYY-MM-DD HH [HH]`
+-   `hrweek`
+-   `hrmonth`
+-   `hrsearch "keyword"`
+-   `hrcontext "keyword"`
+-   `hrstats`
+-   `hrhelp`
+-   `hrbackup`
+-   `hrrestore "backup_file"`
+
+------------------------------------------------------------------------
+
+## Example Usage
+
+``` bash
+# Log a new entry
+hrlogin "fixed MPI bug in boundary conditions"
+
+# View entire log
+hrview
+
+# View 50 recent entries
+hrrecent 50
+
+# Search for keyword
+hrsearch "equilibrium"
+
+# Show entries from specific date
+hrdate 20251211
+
+# Show entry from specific datetime
+hrdate 20251211.1430
+
+# Show entries in date range
+hrrange 20251201 20251210
+
+# Show entries in time range
+hrrange 20251211.0900 20251211.1700
+
+# Show entries in specific hour
+hrhour 20251211 14
+
+# Show entries between 9am-5pm
+hrhour 20251211 09 17
+
+# Pro usage
+hrlist | grep 'MPI'
+hrrecent 50 | grep '20251210'
+hrtoday | wc -l
+hrdate 20251211 | grep -E '\.(09|10|11)[0-9]{2}:'
 ```
 
-## 2) Log an entry
+------------------------------------------------------------------------
 
-```bash
-python hrloginv2.py "implemented feature X"
+# Exporting Reports (Markdown / HTML / PDF)
+
+Run:
+
+``` bash
+hrlog2md
 ```
 
-You can set a custom log file:
+Follow the printed usage instructions for conversion and export options.
 
-```bash
-# macOS/Linux
-export HRLOG_FILE="$HOME/.hrloginfo"
-
-# Windows PowerShell
-$env:HRLOG_FILE = "$HOME/.hrloginfo"
-```
-
-## 3) Convert log to Markdown
-
-```bash
-python hrlogin2md.py "$HOME/.hrloginfo" run/hrloginfo.md --format md
-```
-
-Convert directly to HTML (uses shared style file):
-
-```bash
-python hrlogin2md.py "$HOME/.hrloginfo" run/hrloginfo.html --format html --css hrlogin_style.css
-```
-
-## 4) Export PDF (cross-platform)
-
-Use the built-in converter:
-
-```bash
-python hrlogin2md.py "$HOME/.hrloginfo" run/hrloginfo.pdf --format pdf --css hrlogin_style.css
-```
-
-PDF backend behavior:
-
-- Primary: `pdfkit` + `wkhtmltopdf` binary (best rendering)
-- Fallback: `xhtml2pdf` if `wkhtmltopdf` is not installed
-
-Alternative (`pandoc` + TeX) is still available:
-
-```bash
-cd run
-pandoc ./hrloginfo.md -o output.pdf --pdf-engine=tectonic -H ../header.tex --toc --toc-depth=3 --number-sections
-```
+------------------------------------------------------------------------
 
 ## Notes
 
-- `hrlogin.py` and `hrloginv2.py` now use cross-platform file locking (`portalocker`).
-- `hrlogin2md.py` reads shared style from `hrlogin_style.css` for both HTML and PDF.
-- If running in a specific conda env, prefer: `conda run -n <env> python ...`
-- HTML/PDF Python deps: `markdown2`, `pdfkit`, `xhtml2pdf` (install in your active env).
-- Optional system dependency: `wkhtmltopdf` binary for higher-fidelity PDF rendering.
-- If you prefer `lualatex`, install a TeX distribution separately on each OS and switch `--pdf-engine`.
-- `bash_hrlogin` and `zsh_hrlogin` are shell-specific helpers; the Python commands above are cross-platform.
-
-## Publish checklist
-
-- Include `environment.yml`
-- Include this `README.md`
-- Include `hrlogin_style.css`
-- Exclude runtime output files (`run/*.pdf`, `run/*.html`) if you want a clean repository
+-   Uses cross-platform file locking (`portalocker`).
+-   HTML/PDF Python dependencies: `markdown2`, `pdfkit`, `xhtml2pdf`.
+-   Optional system dependency: `wkhtmltopdf` for high-quality PDF
+    rendering.
+-   TeX-based PDF export via `pandoc` is supported.
+-   Compatible with Conda environments.
