@@ -1,0 +1,545 @@
+# ============================================================================
+# SETUP
+# ============================================================================
+hrlogin() {
+    python3 ~/.local/bin/hrloginv2.py "$@"
+}
+
+# ============================================================================
+# Create aliases for common date formats
+# ============================================================================
+# Updated for YYYYMMDD.HHMM format
+#alias hryesterday='hrdate $(date -v-1d +%Y%m%d)'  # macOS
+#alias hrlastweek='hrrange $(date -v-7d +%Y%m%d) $(date +%Y%m%d)'
+
+alias hryesterday='hrdate $(date --date="-1 day" +%Y%m%d)'
+alias hrlastweek='hrrange $(date --date="-7 day" +%Y%m%d) $(date +%Y%m%d)'
+
+
+
+# ============================================================================
+# hrlogin Viewer Functions (Updated for YYYYMMDD.HHMM format)
+# ============================================================================
+
+# View entire log file
+hrview() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    if [ ! -f "$file" ]; then
+        echo "[hrview] Log file not found: $file"
+        return 1
+    fi
+    less "$file"
+}
+
+# Search log (case-insensitive, with context)
+hrsearch() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    if [ ! -f "$file" ]; then
+        echo "[hrsearch] Log file not found: $file"
+        return 1
+    fi
+    
+    if [ -z "$1" ]; then
+        echo "[hrsearch] Usage: hrsearch <keyword>"
+        return 1
+    fi
+    
+    # Show section headers and matching bullets with color
+    grep -i -B2 --color=always "$1" "$file" | less -R
+}
+
+# Show recent entries (default: last 10)
+hrrecent() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    local n="${1:-10}"
+    
+    if [ ! -f "$file" ]; then
+        echo "[hrrecent] Log file not found: $file"
+        return 1
+    fi
+    
+    echo "=== Last $n entries (by datetime) ==="
+    # Extract entries with section, prefix with YYYYMMDDHHMM for sorting
+    awk '
+    /^#+ / {
+        # Calculate depth and store section at that depth
+        depth = gsub(/#/, "", $1)
+        section_name = $0
+        sub(/^#+ /, "", section_name)
+        sections[depth] = section_name
+        # Clear deeper levels
+        for (i = depth + 1; i <= 10; i++) {
+            delete sections[i]
+        }
+        # Current section is the deepest
+        current_section = section_name
+    }
+    /^- / {
+        # Extract YYYYMMDD.HHMM and convert to YYYYMMDDHHMM
+        if (match($0, /^- [0-9]+\.[0-9]+:/)) {
+            datetime = substr($0, 3, 13)  # Get "YYYYMMDD.HHMM"
+            gsub(/\./, "", datetime)       # Remove dot -> YYYYMMDDHHMM
+            printf "%s [%s] %s\n", datetime, current_section, $0
+        }
+    }
+    ' "$file" | sort -k1,1 | tail -n "$n" | cut -d' ' -f2-
+}
+
+# Show all entries from today
+hrtoday() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    local today=$(date '+%Y%m%d')
+    
+    if [ ! -f "$file" ]; then
+        echo "[hrtoday] Log file not found: $file"
+        return 1
+    fi
+    
+    echo "=== Entries from today ($today) ==="
+    awk -v today="$today" '
+    /^#+ / {
+        # Calculate depth and store section at that depth
+        depth = gsub(/#/, "", $1)
+        section_name = $0
+        sub(/^#+ /, "", section_name)
+        sections[depth] = section_name
+        # Clear deeper levels
+        for (i = depth + 1; i <= 10; i++) {
+            delete sections[i]
+        }
+        # Current section is the deepest
+        current_section = section_name
+    }
+    /^- / && $0 ~ "^- " today "\\." {
+        printf "[%s] %s\n", current_section, $0
+    }
+    ' "$file"
+}
+
+# Show all entries sorted by date (chronological or reverse)
+hrlist() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    local order="${1:-desc}"  # 'asc' or 'desc'
+    
+    if [ ! -f "$file" ]; then
+        echo "[hrlist] Log file not found: $file"
+        return 1
+    fi
+    
+    echo "=== All entries (sorted by datetime: $order) ==="
+    
+    # Extract entries with section, prefix with YYYYMMDDHHMM for sorting
+    awk '
+    /^#+ / {
+        depth = gsub(/#/, "", $1)
+        section_name = $0
+        sub(/^#+ /, "", section_name)
+        sections[depth] = section_name
+        for (i = depth + 1; i <= 10; i++) {
+            delete sections[i]
+        }
+        current_section = section_name
+    }
+    /^- / {
+        # Extract YYYYMMDD.HHMM and convert to YYYYMMDDHHMM
+        if (match($0, /^- [0-9]+\.[0-9]+:/)) {
+            datetime = substr($0, 3, 13)  # Get "YYYYMMDD.HHMM"
+            gsub(/\./, "", datetime)       # Remove dot -> YYYYMMDDHHMM
+            printf "%s [%s] %s\n", datetime, current_section, $0
+        }
+    }
+    ' "$file" | if [ "$order" = "asc" ]; then
+        sort -k1,1 | cut -d' ' -f2-
+    else
+        sort -k1,1 -r | cut -d' ' -f2-
+    fi
+}
+
+# Show entries for a specific date (format: YYYYMMDD)
+# Can also accept YYYYMMDD.HHMM for specific datetime
+hrdate() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    local target_date="$1"
+    
+    if [ ! -f "$file" ]; then
+        echo "[hrdate] Log file not found: $file"
+        return 1
+    fi
+    
+    if [ -z "$target_date" ]; then
+        echo "[hrdate] Usage: hrdate YYYYMMDD [or YYYYMMDD.HHMM for specific time]"
+        echo "Example: hrdate 20251211"
+        echo "Example: hrdate 20251211.1430"
+        return 1
+    fi
+    
+    # Check if full datetime or just date was provided
+    if [[ "$target_date" == *.* ]]; then
+        # Full datetime provided (YYYYMMDD.HHMM)
+        echo "=== Entries from $target_date ==="
+        awk -v target="$target_date" '
+        /^#+ / {
+            depth = gsub(/#/, "", $1)
+            section_name = $0
+            sub(/^#+ /, "", section_name)
+            sections[depth] = section_name
+            for (i = depth + 1; i <= 10; i++) {
+                delete sections[i]
+            }
+            current_section = section_name
+        }
+        /^- / && $0 ~ "^- " target ":" {
+            printf "[%s] %s\n", current_section, $0
+        }
+        ' "$file"
+    else
+        # Just date provided (YYYYMMDD) - match all times for that date
+        echo "=== Entries from $target_date ==="
+        awk -v target="$target_date" '
+        /^#+ / {
+            depth = gsub(/#/, "", $1)
+            section_name = $0
+            sub(/^#+ /, "", section_name)
+            sections[depth] = section_name
+            for (i = depth + 1; i <= 10; i++) {
+                delete sections[i]
+            }
+            current_section = section_name
+        }
+        /^- / && $0 ~ "^- " target "\\." {
+            printf "[%s] %s\n", current_section, $0
+        }
+        ' "$file"
+    fi
+}
+
+# Show entries from date range (format: YYYYMMDD YYYYMMDD)
+# Can also accept YYYYMMDD.HHMM for precise datetime ranges
+hrrange() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    local start_date="$1"
+    local end_date="$2"
+    
+    if [ ! -f "$file" ]; then
+        echo "[hrrange] Log file not found: $file"
+        return 1
+    fi
+    
+    if [ -z "$start_date" ] || [ -z "$end_date" ]; then
+        echo "[hrrange] Usage: hrrange START_DATE END_DATE"
+        echo "Example: hrrange 20251201 20251210"
+        echo "Example: hrrange 20251201.0900 20251210.1700"
+        return 1
+    fi
+    
+    # Remove dots for comparison (convert YYYYMMDD.HHMM -> YYYYMMDDHHMM)
+    local start_normalized=$(echo "$start_date" | tr -d '.')
+    local end_normalized=$(echo "$end_date" | tr -d '.')
+    
+    # Pad with zeros if only date provided (YYYYMMDD -> YYYYMMDD0000)
+    if [ ${#start_normalized} -eq 8 ]; then
+        start_normalized="${start_normalized}0000"
+    fi
+    if [ ${#end_normalized} -eq 8 ]; then
+        end_normalized="${end_normalized}2359"
+    fi
+    
+    echo "=== Entries from $start_date to $end_date ==="
+    awk -v start="$start_normalized" -v end="$end_normalized" '
+    /^#+ / {
+        depth = gsub(/#/, "", $1)
+        section_name = $0
+        sub(/^#+ /, "", section_name)
+        sections[depth] = section_name
+        for (i = depth + 1; i <= 10; i++) {
+            delete sections[i]
+        }
+        current_section = section_name
+    }
+    /^- / {
+        # Extract YYYYMMDD.HHMM and convert to YYYYMMDDHHMM
+        if (match($0, /^- [0-9]+\.[0-9]+:/)) {
+            datetime = substr($0, 3, 13)  # Get "YYYYMMDD.HHMM"
+            gsub(/\./, "", datetime)       # Remove dot -> YYYYMMDDHHMM
+            if (datetime >= start && datetime <= end) {
+                printf "%s [%s] %s\n", datetime, current_section, $0
+            }
+        }
+    }
+    ' "$file" | sort -k1,1 -r | cut -d' ' -f2-
+}
+
+# Show entries with context (section headers)
+hrcontext() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    local keyword="$1"
+    
+    if [ ! -f "$file" ]; then
+        echo "[hrcontext] Log file not found: $file"
+        return 1
+    fi
+    
+    if [ -z "$keyword" ]; then
+        echo "[hrcontext] Usage: hrcontext <keyword>"
+        return 1
+    fi
+    
+    echo "=== Entries matching '$keyword' with context ==="
+    
+    # Show matching bullets with their section hierarchy
+    awk -v keyword="$keyword" '
+    BEGIN { IGNORECASE=1 }
+    /^# / || /^## / || /^### / || /^#### / {
+        # Store current section path
+        depth = gsub(/#/, "", $1)
+        sections[depth] = $0
+        # Clear deeper levels
+        for (i = depth + 1; i <= 10; i++) {
+            delete sections[i]
+        }
+    }
+    /^- / && $0 ~ keyword {
+        # Print section hierarchy
+        for (i = 1; i <= 10; i++) {
+            if (i in sections) {
+                print sections[i]
+            }
+        }
+        print "  " $0
+        print ""
+    }
+    ' "$file" | less
+}
+
+# Show summary statistics
+hrstats() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    
+    if [ ! -f "$file" ]; then
+        echo "[hrstats] Log file not found: $file"
+        return 1
+    fi
+    
+    echo "=== hrlogin Statistics ==="
+    echo ""
+    
+    # Total entries
+    local total=$(grep -c "^- " "$file")
+    echo "Total entries: $total"
+    
+    # Entries by date (extract YYYYMMDD from YYYYMMDD.HHMM)
+    echo ""
+    echo "Entries by date (top 10):"
+    grep "^- " "$file" | sed 's/^- \([0-9]\{8\}\)\.[0-9]\{4\}:.*/\1/' | sort | uniq -c | sort -rn | head -10 | \
+        awk '{printf "  %s: %d entries\n", $2, $1}'
+    
+    # Total sections
+    local sections=$(grep -E "^#{1,10} " "$file" | wc -l)
+    echo ""
+    echo "Total sections: $sections"
+    
+    # Section depth distribution
+    echo ""
+    echo "Sections by depth:"
+    grep -E "^#{1,10} " "$file" | awk '{
+        depth = gsub(/#/, "", $1)
+        count[depth]++
+    }
+    END {
+        for (d in count) {
+            printf "  Level %d: %d sections\n", d, count[d]
+        }
+    }' | sort -n
+    
+    # First and last entry dates
+    echo ""
+    local first_date=$(grep "^- " "$file" | head -1 | sed 's/^- \([0-9]\{8\}\.[0-9]\{4\}\):.*/\1/')
+    local last_date=$(grep "^- " "$file" | tail -1 | sed 's/^- \([0-9]\{8\}\.[0-9]\{4\}\):.*/\1/')
+    echo "First entry: $first_date"
+    echo "Last entry: $last_date"
+}
+
+# Show entries for current week
+hrweek() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    
+    if [ ! -f "$file" ]; then
+        echo "[hrweek] Log file not found: $file"
+        return 1
+    fi
+    
+    # Calculate start of week (Monday)
+    local start_date=$(date -v-$(( ($(date +%u) - 1) ))d '+%Y%m%d' 2>/dev/null || \
+                      date -d "monday this week" '+%Y%m%d')
+    local today=$(date '+%Y%m%d')
+    
+    echo "=== Entries this week ($start_date - $today) ==="
+    hrrange "$start_date" "$today"
+}
+
+# Show entries for current month
+hrmonth() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    
+    if [ ! -f "$file" ]; then
+        echo "[hrmonth] Log file not found: $file"
+        return 1
+    fi
+    
+    local start_date=$(date '+%Y%m01')
+    local today=$(date '+%Y%m%d')
+    
+    echo "=== Entries this month ($start_date - $today) ==="
+    hrrange "$start_date" "$today"
+}
+
+# NEW: Show entries for a specific hour range
+hrhour() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    local date="$1"
+    local start_hour="$2"
+    local end_hour="${3:-$start_hour}"
+    
+    if [ ! -f "$file" ]; then
+        echo "[hrhour] Log file not found: $file"
+        return 1
+    fi
+    
+    if [ -z "$date" ] || [ -z "$start_hour" ]; then
+        echo "[hrhour] Usage: hrhour YYYYMMDD HH [END_HH]"
+        echo "Example: hrhour 20251211 14        # All entries in hour 14 (2-3pm)"
+        echo "Example: hrhour 20251211 09 17     # Entries between 9am-5pm"
+        return 1
+    fi
+    
+    # Format hours as HHMM
+    local start_time=$(printf "%02d00" "$start_hour")
+    local end_time=$(printf "%02d59" "$end_hour")
+    
+    echo "=== Entries from $date between ${start_hour}:00 and ${end_hour}:59 ==="
+    hrrange "${date}.${start_time}" "${date}.${end_time}"
+}
+
+
+
+# ============================================================================
+# Do following things:
+## - copy .hrloginfo to .hrloginfo_{datetime:YYYYMMDDHHMM} for backup
+## - run 'python ~/.local/bin/hrlogin2md.py .hrloginfo hrloginfo.md' to convert to markdown
+## - run 'pandoc hrloginfo.md -o hrloginfo.pdf --pdf-engine=xelatex -H header.tex --toc --toc-depth=3 --number-sections' to convert to PDF
+# make a funtion to do all of the above in one step
+hrbackup() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    if [ ! -f "$file" ]; then
+        echo "[hrbackup] Log file not found: $file"
+        return 1
+    fi
+    local datetime=$(date '+%Y%m%d%H%M')
+    local backup_file="${file}_${datetime}"
+    cp "$file" "$backup_file"
+    # mv $backup_file to ~/.local/backup/
+    mv "$backup_file" "$HOME/.local/backup/"
+    #echo "Backup created: $backup_file"
+    #python3 ~/.local/bin/hrlogin2md.py "$file" "hrloginfo.md"
+    echo "Backup created: $HOME/.local/backup/$(basename "$backup_file")"
+    python3 ~/.local/bin/hrlogin2md.py "$file" "hrloginfo.md"
+    pandoc hrloginfo.md -o hrloginfo.pdf --pdf-engine=xelatex -H ~/.local/bin/header.tex --toc --toc-depth=3 --number-sections
+    echo "Markdown and PDF generated: hrloginfo.md, hrloginfo.pdf"
+}
+
+
+hrlog2md() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    if [ ! -f "$file" ]; then
+        echo "[hrlog2md] Log file not found: $file"
+        return 1
+    fi
+    python3 ~/.local/bin/hrlogin2md.py "$file" "hrloginfo.md"
+    echo "Markdown generated: hrloginfo.md"
+}
+
+
+
+hrlog2pdf() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    if [ ! -f "$file" ]; then
+        echo "[hrlog2pdf] Log file not found: $file"
+        return 1
+    fi
+    python3 ~/.local/bin/hrlogin2md.py "$file" "hrloginfo.md"
+    pandoc hrloginfo.md -o hrloginfo.pdf --pdf-engine=xelatex -H ~/.local/bin/header.tex --toc --toc-depth=3 --number-sections
+    echo "PDF generated: hrloginfo.pdf"
+}
+
+hrlog2html() {
+    local file="${HRLOG_FILE:-$HOME/.hrloginfo}"
+    if [ ! -f "$file" ]; then
+        echo "[hrlog2html] Log file not found: $file"
+        return 1
+    fi
+    python3 ~/.local/bin/hrlogin2md.py "$file" "hrloginfo.md"
+    pandoc hrloginfo.md -o hrloginfo.html
+    echo "HTML generated: hrloginfo.html"
+}
+
+
+# ---------------------------------------------------------------------------
+
+
+
+# Quick help
+hrhelp() {
+    cat << 'EOF'
+=== hrlogin Commands (v2 - YYYYMMDD.HHMM format) ===
+
+Logging:
+  hrlogin 'description'     - Log an entry in current directory
+
+Viewing:
+  hrview                    - View entire log file
+  hrlist [asc|desc]         - List all entries sorted by datetime (default: desc)
+  hrrecent [N]              - Show last N entries (default: 10)
+  
+Search:
+  hrsearch <keyword>        - Search for keyword (with context)
+  hrcontext <keyword>       - Search with full section hierarchy
+  
+Date-based:
+  hrtoday                   - Show today's entries
+  hrdate YYYYMMDD           - Show entries from specific date
+  hrdate YYYYMMDD.HHMM      - Show entries from specific datetime
+  hrrange START END         - Show entries in date/datetime range
+  hrweek                    - Show this week's entries
+  hrmonth                   - Show this month's entries
+  hrhour YYYYMMDD HH [HH]   - Show entries for specific hour(s)
+  
+Analysis:
+  hrstats                   - Show statistics summary
+  hrhelp                    - Show this help
+
+Environment:
+  HRLOG_FILE               - Set custom log file path (default: ~/.hrloginfo)
+
+Installation:
+  copy hrloginv2.py ~/.local/bin/
+  chmod +x ~/.local/bin/hrloginv2.py
+
+Examples:
+  hrlogin 'fixed MPI bug in boundary conditions'
+  hrrecent 20
+  hrsearch 'equilibrium'
+  hrdate 20251211                    # All entries on Dec 11
+  hrdate 20251211.1430               # Specific entry at 2:30pm
+  hrrange 20251201 20251210          # Date range
+  hrrange 20251211.0900 20251211.1700  # Time range (9am-5pm)
+  hrhour 20251211 14                 # All entries in 2pm hour
+  hrhour 20251211 09 17              # Entries between 9am-5pm
+
+ProUsage - Combine with other tools:
+  hrlist | grep 'MPI'              # Search in sorted list
+  hrrecent 50 | grep '20251210'    # Recent entries from specific date
+  hrtoday | wc -l                  # Count today's entries
+  hrdate 20251211 | grep -E '\.(09|10|11)[0-9]{2}:'  # Morning entries only
+
+EOF
+}

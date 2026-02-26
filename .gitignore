@@ -205,3 +205,10 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# specificaly hrlogger
+__MACOSX/
+old_versions/
+run/
+sample_data/
+.DS_Store/

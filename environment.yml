@@ -1,0 +1,12 @@
+name: py-hrlogger
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.10,<3.13
+  - pandoc
+  - tectonic
+  - pip
+  - pip:
+      - markdown2
+      - pdfkit
+      - portalocker>=2.8

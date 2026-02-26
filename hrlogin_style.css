@@ -1,0 +1,80 @@
+body {
+    font-family: 'Segoe UI', 'Times New Roman', 'Latin Modern Roman', serif;
+    font-size: 9pt;
+    line-height: 0.9;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0.8in 0.7in;
+    color: #333;
+}
+
+p {
+    margin: 0 0 6pt 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: rgb(40, 40, 40);
+    margin-top: 10px;
+    margin-bottom: 6px;
+    font-weight: 600;
+    line-height: 1.1;
+    margin-left: 0;
+    padding-left: 0;
+    text-indent: 0;
+}
+
+h1 { font-size: 19pt; border-bottom: 1px solid #d9d9d9; padding-bottom: 0.2em; }
+h2 { font-size: 17pt; border-bottom: 1px solid #e6e6e6; padding-bottom: 0.15em; }
+h3 { font-size: 15pt; }
+h4 { font-size: 13pt; }
+h5 { font-size: 11pt; }
+h6 { font-size: 9pt; }
+
+a {
+    color: rgb(0, 102, 204);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+blockquote {
+    border-left: 3px solid rgb(200, 200, 200);
+    padding-left: 10px;
+    margin-left: 0;
+    color: #6a737d;
+}
+
+code {
+    background-color: rgb(245, 245, 245);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+}
+
+.recency-tag {
+    display: inline-block;
+    min-width: 56px;
+    padding: 0 6px;
+    margin-right: 5px;
+    border-radius: 999px;
+    border: 1px solid;
+    font-size: 0.7em;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-align: center;
+    vertical-align: middle;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+ul, ol {
+    padding-left: 1.4em;
+    margin-top: 0;
+    margin-bottom: 4px;
+}
+
+li {
+    margin-bottom: 2px;
+}
